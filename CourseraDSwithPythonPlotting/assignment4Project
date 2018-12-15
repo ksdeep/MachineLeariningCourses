@@ -1,0 +1,103 @@
+import pandas as pd
+import numpy as np
+import datetime as dt
+import matplotlib.pyplot as plt
+from matplotlib.widgets import RadioButtons
+import matplotlib.gridspec as gridspec
+
+
+metros = ['Delhi','Mumbai','Kolkata','Chennai']
+pollutant = ['so2','no2','pm2_5']
+saftSO2 = [50,80]
+safeNO2 = [40,80]
+safePPM = [60,100]
+movingAverageDays = 365
+
+
+
+def readAndCleanData():
+    data=pd.read_csv('C:\\Users\\ksdee\\Downloads\\data.csv\\data1.csv',encoding='utf-8',header=0,low_memory=False, sep=',',error_bad_lines =False)
+    data['isMetro'] = [x in ['Delhi','Greater Mumbai','Mumbai','Chennai','Kolkata','Calcutta'] for x in data['location']]
+    data = data[data['isMetro']]
+    data.loc[data[data['location']=='Greater Mumbai'].index,'location'] = 'Mumbai'
+    data.loc[data[data['location'] == 'Calcutta'].index, 'location'] = 'Kolkata'
+    data['date'] = [pd.Timestamp(dt.datetime.strptime(str(x), '%d-%m-%Y')) for x in data['date'].values]
+    data = data[['location','so2','no2','pm2_5','date']]
+    return data
+
+
+
+def plotData(data):
+    fig = plt.figure()
+    gspec = gridspec.GridSpec(2, 4)
+
+    locationButtion = plt.subplot(gspec[0, 0])
+    pollutionButtion = plt.subplot(gspec[1, 0])
+    picturePlot = plt.subplot(gspec[:,1:])
+
+
+    def draw(location, pollutant):
+
+
+        picturePlot.clear()
+        y = data.loc[data[data['location'] == location].index, pollutant]
+
+        # RMy = running_mean(np.array(y), movingAverageDays)
+        x = data.loc[data[data['location'] == location].index, 'date'].tolist()
+
+        print("{} <> {} len y = {} len x ={}".format(location, pollutant, len(y),len(x)))
+
+        col = np.where(y < saftSO2[0], 'g', np.where(y > saftSO2[1], 'r', 'y'))
+        picturePlot.scatter(x, y, color=col, alpha=0.5)
+
+        picturePlot.axhline(saftSO2[0], linestyle='-', color='g')
+        picturePlot.axhline(saftSO2[1], linestyle='-', color='r')
+        ytick = picturePlot.get_yticks()
+        ytick = ytick[ytick >= 0]
+        picturePlot.set_yticks(list(ytick) + saftSO2)
+        picturePlot.annotate('Healthy', [x[len(x) - 1], int(saftSO2[0] / 2)])
+        picturePlot.annotate('OK with low exposure', [x[len(x) - 1], int(saftSO2[0] + (saftSO2[1] - saftSO2[0]) / 2)])
+        picturePlot.annotate('Harmful Zone', [x[len(x) - 1], int(saftSO2[1] + saftSO2[1] / 2)])
+
+        # picturePlot.gca().spines['right'].set_visible(False)
+        # picturePlot.gca().spines['top'].set_visible(False)
+        # picturePlot.subplots_adjust(left=0.3)
+
+    pol = pollutant[0]
+    loc = metros[0]
+
+    draw(loc,pol)
+
+
+    axcolor = 'lightgoldenrodyellow'
+    # rax = locationButtion.axes([0.05, 0.7, 0.15, 0.15], facecolor=axcolor)
+    radio = RadioButtons(locationButtion, metros)
+
+    def locationFunc(label):
+        global loc
+        loc = label
+        draw(loc, pol )
+        print(loc, pol)
+
+    radio.on_clicked(locationFunc)
+
+    # rax = pollutionButtion.axes([0.05, 0.4, 0.15, 0.15], facecolor=axcolor)
+    radio2 = RadioButtons(pollutionButtion, pollutant)
+
+    def polutantFunc(label):
+        global  pol
+        pol = label
+        draw(loc, pol)
+        print(loc, pol)
+
+    radio2.on_clicked(polutantFunc)
+
+    plt.show()
+
+
+def running_mean(x, N):
+    csum = np.nancumsum(np.insert(x, 0, 0))
+    return (csum[N:] - csum[:-N]) / float(N)
+if __name__ == '__main__':
+    data = readAndCleanData()
+    plotData(data)
